@@ -1,5 +1,4 @@
 from django.urls import path
-from . import views
 from .views import CustomAuthTokenView, CustomRefreshTokenView
 
 from rest_framework_simplejwt.views import (
@@ -8,7 +7,6 @@ from rest_framework_simplejwt.views import (
 
 
 urlpatterns = [
-    path('', views.getRoutes),
     # path('notes/', views.getNotes),
 
     path('token/', CustomAuthTokenView.as_view(), name='token_obtain_pair'),
