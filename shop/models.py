@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 import uuid
+from datetime import datetime
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -26,14 +27,25 @@ class Product(models.Model):
         return self.name
 
 class Cart(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     cart_items = models.ManyToManyField(Product, through='CartItem')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.user.user_name
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    is_selected = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['cart', 'product']
+
+    def __str__(self):
+        return "{}_{}".format(self.cart.user.user_name, self.id)
 
 class Order(models.Model):
     order_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -51,6 +63,9 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ['order', 'product']
 
 class UserAddress(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

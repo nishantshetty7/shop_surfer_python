@@ -1,4 +1,3 @@
-from django.http import JsonResponse
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -45,7 +44,7 @@ class CustomAuthTokenView(TokenObtainPairView):
             httponly=True,
             secure=True,    # Enable this if using HTTPS
             samesite=None,
-            max_age=(60 * 15)
+            max_age=(60 * 30)
         )
         
         return response
@@ -77,25 +76,6 @@ class CustomRefreshTokenView(APIView):
             # Handle any potential exceptions (e.g., token expiration, invalid signature, etc.)
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
-@api_view(['GET'])
-def getRoutes(request):
-    routes = [
-        '/api/token',
-        '/api/token/refresh',
-    ]
-
-    return Response(routes)
-
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def getNotes(request):
-#     user = request.user
-#     print(user.id)
-#     notes = user.note_set.all()
-#     serializer = NoteSerializer(notes, many=True)
-#     return Response(serializer.data)
 
 
 # class CustomTokenView(APIView):
