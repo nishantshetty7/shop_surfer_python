@@ -10,12 +10,7 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
-
-def get_object_or_none(model, *args, **kwargs):
-    try:
-        return model.objects.get(*args, **kwargs)
-    except model.DoesNotExist:
-        return None
+from base.utils import get_object_or_none
     
 @api_view(['GET'])
 def get_categories(request):
