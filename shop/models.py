@@ -32,7 +32,7 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.user.user_name
+        return self.user.email
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
@@ -45,7 +45,7 @@ class CartItem(models.Model):
         unique_together = ['cart', 'product']
 
     def __str__(self):
-        return "{}_{}".format(self.cart.user.user_name, self.id)
+        return "{}_{}".format(self.cart.user.email, self.id)
 
 class Order(models.Model):
     order_id = models.UUIDField(primary_key=True, default=uuid.uuid4)

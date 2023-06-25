@@ -1,5 +1,6 @@
 from rest_framework import permissions
 from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -20,8 +21,10 @@ class AuthTokenSerializer(TokenObtainPairSerializer):
 
         # Add custom claims
         token['email'] = user.email
+        token['phone_number'] = user.phone_number
+        token['name'] = user.first_name
         token['is_admin'] = user.is_staff
-        # ...
+
         print("Token Updated")
 
         return token
@@ -48,7 +51,7 @@ class LoginUserView(TokenObtainPairView):
             httponly=True,
             secure=True,    # Enable this if using HTTPS
             samesite=None,
-            max_age=(60 * 15)
+            max_age=(60 * 60 * 24)
         )
         
         return response
@@ -105,6 +108,25 @@ def register(request):
                             first_name=first_name,
                             last_name=last_name)
         return Response({ "success": f"New user {email} created!" }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({ "error": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+def logout(request):
+
+    # Retrieve the refresh token from the HTTP cookie
+    refresh_token = request.COOKIES.get('jwt', None)
+
+    # If the refresh token is not present, return a 400 Bad Request response
+    if not refresh_token:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    try:
+        response = Response({"message": "Logged Out!"}, status=status.HTTP_204_NO_CONTENT)
+        response.delete_cookie('jwt')
+        return response
     except Exception as e:
         return Response({ "error": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

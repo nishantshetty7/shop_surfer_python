@@ -84,22 +84,54 @@ def add_cart_item(request):
 
         
 
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def add_cart_items(request):
+
+#     user = request.user
+#     cart_items = request.data
+#     cart = get_object_or_none(Cart, user=user)
+#     if not cart:
+#         cart = Cart.objects.create(user=user)
+    
+#     cart_item_dict = {"cart_id": cart.id}
+#     print(cart_item_dict)
+
+#     # Check if the product exists
+#     product = get_object_or_none(Product, id=cart_item_dict.get("product_id"))
+
+#     try:
+#         if cart and product:
+#             CartItem.objects.create(**cart_item_dict)
+
+#             latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+#             serializer = CartItemSerializer(latest_cart, many=True)
+
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+#     except IntegrityError:
+#         pass
+    
+#     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_cart_item(request):
     print(request.data)
-    item_id = request.data.pop("item_id", None)
+    # item_id = request.data.pop("item_id", None)
+    product_id = request.data.pop("product_id", None)
     user = request.user
     updated = True
-    if item_id and ("quantity" in request.data or "is_selected" in request.data):
-        CartItem.objects.filter(id=item_id).update(**request.data)
-    elif not item_id and "is_selected" in request.data:
-        CartItem.objects.filter(cart__user=user).update(is_selected=request.data["is_selected"])
+    if product_id and ("quantity" in request.data or "is_selected" in request.data):
+        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart.filter(product_id=product_id).update(**request.data)
+    elif not product_id and "is_selected" in request.data:
+        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart.update(is_selected=request.data["is_selected"])
     else:
         updated = False
 
     if updated:
-        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -109,19 +141,14 @@ def update_cart_item(request):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])           
 def delete_cart_item(request):
-    item_id = request.data.pop("item_id", None)
+    # item_id = request.data.pop("item_id", None)
     product_id = request.data.pop("product_id", None)
     user = request.user
     updated = True
-    if item_id:
-        CartItem.objects.filter(id=item_id).delete()
-    elif product_id:
-        CartItem.objects.filter(cart__user=user, product_id=product_id).delete()  
-    else:
-        updated = False
 
     if updated:
         latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart.filter(product_id=product_id).delete()
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
