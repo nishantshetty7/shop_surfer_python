@@ -84,34 +84,57 @@ def add_cart_item(request):
 
         
 
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# def add_cart_items(request):
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def merge_cart(request):
 
-#     user = request.user
-#     cart_items = request.data
-#     cart = get_object_or_none(Cart, user=user)
-#     if not cart:
-#         cart = Cart.objects.create(user=user)
+    user = request.user
+    cart_items = request.data
+    cart = get_object_or_none(Cart, user=user)
+    if not cart:
+        cart = Cart.objects.create(user=user)
+
+    item_objects = []
+    for item in cart_items:
+        if item.get("product", None):
+            item_obj = CartItem(cart=cart, product_id=item["product"]["id"],
+                                quantity=item["quantity"], is_selected=item["is_selected"])
+            # print(item_obj.product_id)
+            item_objects.append(item_obj)
+
+    if len(item_objects) > 0:
+
+        item_objects_old = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        if len(item_objects_old) > 0:
+            # Check for duplicates
+            existing_ids = set(item_objects_old.values_list('product_id', flat=True))
+            duplicate_items = [obj for obj in item_objects if obj.product_id in existing_ids]
+            
+            # Filter out duplicates from the original list
+            unique_cart_items = [obj for obj in item_objects if obj not in duplicate_items]
+
+            for obj in duplicate_items:
+                CartItem.objects.filter(product_id=obj.product_id).update(quantity=obj.quantity,
+                                                        is_selected=obj.is_selected)
+        else:
+            unique_cart_items = item_objects
+
+        valid_products = Product.objects.filter(id__in=[obj.product_id for obj in unique_cart_items]).values_list("id", flat=True)
+        print(valid_products)
+
+        valid_cart_items = [obj for obj in unique_cart_items if obj.product_id in valid_products]
+        try:
+            CartItem.objects.bulk_create(valid_cart_items, ignore_conflicts=True)
+        except IntegrityError:
+            pass
+
+
+        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        serializer = CartItemSerializer(latest_cart, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
-#     cart_item_dict = {"cart_id": cart.id}
-#     print(cart_item_dict)
-
-#     # Check if the product exists
-#     product = get_object_or_none(Product, id=cart_item_dict.get("product_id"))
-
-#     try:
-#         if cart and product:
-#             CartItem.objects.create(**cart_item_dict)
-
-#             latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
-#             serializer = CartItemSerializer(latest_cart, many=True)
-
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-#     except IntegrityError:
-#         pass
-    
-#     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PATCH'])
