@@ -10,5 +10,6 @@ urlpatterns = [
     path('cart/merge/', views.merge_cart, name='merge_cart'),
     path('cart/update/', views.update_cart_item, name='update_cart_item'),
     path('cart/delete/', views.delete_cart_item, name='delete_cart_item'),
+    path('order/place/', views.place_order, name='place_order'),
     # path('cart/<int:pk>/', views.CartItemRetrieveUpdateDelete.as_view(), name='cartitemupdatedelete'),
 ]

@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from .serializers import CategorySerializer, ProductSerializer, CartSerializer, CartItemSerializer
-from shop.models import Product, Category, Cart, CartItem
+from .serializers import CategorySerializer, ProductSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer
+from shop.models import Product, Category, Cart, CartItem, Order, OrderItem
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
@@ -161,23 +161,67 @@ def update_cart_item(request):
     
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])           
 def delete_cart_item(request):
     # item_id = request.data.pop("item_id", None)
-    product_id = request.data.pop("product_id", None)
+    product_ids = request.data.pop("product_ids", None)
     user = request.user
-    updated = True
 
-    if updated:
+    if product_ids:
         latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
-        latest_cart.filter(product_id=product_id).delete()
+        latest_cart.filter(product_id__in=product_ids).delete()
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
             
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def place_order(request):
+
+    user = request.user
+    order_data = request.data.pop("order", None)
+    order_items = request.data.pop("order_items", None)
+
+    if order_data and order_items:
+        order_data["user_id"] = user.id
+        order_obj = Order(**order_data)
+
+        item_objects = []
+        for item in order_items:
+            if item.get("product_id", None):
+                item_obj = OrderItem(order=order_obj, product_id=item["product_id"],
+                                    price=item["price"], quantity=item["quantity"])
+                item_objects.append(item_obj)
+
+        if len(item_objects) > 0:
+            
+            valid_products = Product.objects.filter(id__in=[obj.product_id for obj in item_objects]).values_list("id", flat=True)
+            print(valid_products)
+
+            valid_order_items = [obj for obj in item_objects if obj.product_id in valid_products]
+            if len(valid_order_items) > 0:
+                order_obj.save()
+                try:
+                    OrderItem.objects.bulk_create(valid_order_items, ignore_conflicts=True)
+                except IntegrityError:
+                    pass
+
+                order_serializer = OrderSerializer(order_obj)
+                response_data = order_serializer.data
+                item_objects = OrderItem.objects.filter(order=order_obj)
+                item_serializer = OrderItemSerializer(item_objects, many=True)
+                
+                response_data["order_items"] = item_serializer.data
+
+                return Response(response_data, status=status.HTTP_200_OK)
+        
+    return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 # class CartItemRetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
 #     permission_classes = [permissions.IsAuthenticated]

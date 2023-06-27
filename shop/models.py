@@ -57,15 +57,19 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=50)
 
     def __str__(self):
-        return self.order_id
+        return str(self.order_id)
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product")
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     quantity = models.PositiveIntegerField(default=1)
 
     class Meta:
         unique_together = ['order', 'product']
+
+    def __str__(self):
+        return f"{str(self.order_id)}_{self.product.id}"
 
 class UserAddress(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

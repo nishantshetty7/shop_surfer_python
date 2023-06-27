@@ -1,5 +1,6 @@
 from rest_framework.serializers import ModelSerializer
-from shop.models import Category, Product, Cart, CartItem
+from shop.models import Category, Product, Cart, CartItem, Order, OrderItem
+from rest_framework import serializers
 
 
 class CategorySerializer(ModelSerializer):
@@ -44,3 +45,27 @@ class CartItemSerializer(ModelSerializer):
     
     # def partial_update(self, instance, validated_data):
     #     return self.update(instance, validated_data)
+
+class OrderProductSerializer(ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name']
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    # product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    product_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderItem
+        fields = ['product_id', 'product_name', 'price', 'quantity']
+
+    def get_product_name(self, obj):
+        return obj.product.name if obj.product.name else None
+
+class OrderSerializer(ModelSerializer):
+    # order_items = OrderItemSerializer(many=True, read_only=True)
+    created_at = serializers.DateTimeField(format='%d %B %Y')
+
+    class Meta:
+        model = Order
+        fields = ['order_id', 'total_amount', 'created_at', 'shipping_address', 'payment_method']
