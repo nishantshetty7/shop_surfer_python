@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer
-from shop.models import Category, Product, Cart, CartItem, Order, OrderItem
+from shop.models import Category, Product, Cart, CartItem, Order, OrderItem, ShippingAddress
 from rest_framework import serializers
 
 
@@ -69,3 +69,8 @@ class OrderSerializer(ModelSerializer):
     class Meta:
         model = Order
         fields = ['order_id', 'total_amount', 'created_at', 'shipping_address', 'payment_method']
+
+class ShippingAddressSerializer(ModelSerializer):
+    class Meta:
+        model = ShippingAddress
+        fields = ['id', 'full_name', 'mobile_number', 'pin_code', 'address1', 'address2', 'city', 'state', 'is_default']

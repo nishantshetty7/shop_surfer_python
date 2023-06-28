@@ -11,5 +11,8 @@ urlpatterns = [
     path('cart/update/', views.update_cart_item, name='update_cart_item'),
     path('cart/delete/', views.delete_cart_item, name='delete_cart_item'),
     path('order/place/', views.place_order, name='place_order'),
+    path('address/', views.get_address_list, name='get_address_list'),
+    path('address/add/', views.add_address, name='add_address'),
+    path('address/edit/', views.edit_address, name='edit_address'),
     # path('cart/<int:pk>/', views.CartItemRetrieveUpdateDelete.as_view(), name='cartitemupdatedelete'),
 ]

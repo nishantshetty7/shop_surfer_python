@@ -71,9 +71,17 @@ class OrderItem(models.Model):
     def __str__(self):
         return f"{str(self.order_id)}_{self.product.id}"
 
-class UserAddress(models.Model):
+class ShippingAddress(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    address_list = models.TextField()
+    full_name = models.CharField(max_length=150, blank=True)
+    mobile_number = models.CharField(max_length = 10)
+    pin_code = models.CharField(max_length = 10)
+    address1 = models.TextField()
+    address2 = models.TextField()
+    city = models.CharField(max_length=150, blank=True)
+    state = models.CharField(max_length=150, blank=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.user.user_name
+        return f"{self.user.email}_{self.full_name}"

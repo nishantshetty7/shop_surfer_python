@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from .serializers import CategorySerializer, ProductSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer
-from shop.models import Product, Category, Cart, CartItem, Order, OrderItem
+from .serializers import CategorySerializer, ProductSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer, ShippingAddressSerializer
+from shop.models import Product, Category, Cart, CartItem, Order, OrderItem, ShippingAddress
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
@@ -222,6 +222,81 @@ def place_order(request):
         
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_address_list(request):
+
+    user = request.user
+    address_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+    serializer = ShippingAddressSerializer(address_list, many=True)
+    updated_list = []
+    for addr in serializer.data:
+        addr["is_selected"] = True if addr["is_default"] else False
+
+        updated_list.append(addr)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_address(request):
+
+    user = request.user
+    new_address = dict(request.data)
+
+    if new_address:
+        new_address["user_id"] = user.id
+        address_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+        if len(address_list) == 0:
+            new_address["is_default"] = True
+        
+        new_address_obj = ShippingAddress.objects.create(**new_address)
+
+        latest_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+        serializer = ShippingAddressSerializer(latest_list, many=True)
+        updated_list = []
+        for addr in serializer.data:
+            addr["is_selected"] = True if addr["id"] == new_address_obj.id else False
+
+            updated_list.append(addr)
+
+        return Response(updated_list, status=status.HTTP_200_OK)
+    
+    return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def edit_address(request):
+
+    user = request.user
+    updated_address = dict(request.data)
+    address_id = updated_address.pop("id", None)
+    updated_address.pop("is_selected")
+    updated = False
+
+    if address_id:
+        address_obj = ShippingAddress.objects.filter(id = address_id)
+        if len(address_obj) > 0:
+            address_obj.update(**updated_address)
+            updated = True
+
+        latest_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+        serializer = ShippingAddressSerializer(latest_list, many=True)
+        updated_list = []
+        for addr in serializer.data:
+            if updated:
+                addr["is_selected"] = True if addr["id"] == address_id else False
+            else:
+                addr["is_selected"] = True if addr["is_default"] else False
+
+            updated_list.append(addr)
+
+        return Response(updated_list, status=status.HTTP_200_OK)
+    
+    return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 # class CartItemRetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
 #     permission_classes = [permissions.IsAuthenticated]
