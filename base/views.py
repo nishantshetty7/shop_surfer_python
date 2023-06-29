@@ -1,6 +1,6 @@
+from django.conf import settings
 from rest_framework import permissions
 from rest_framework.response import Response
-from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,6 +12,9 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from base.models import User
 from base.utils import get_object_or_none
 from django.contrib.auth.hashers import make_password
+
+import jwt
+from base.emailer import send_verification_email
 
 
 class AuthTokenSerializer(TokenObtainPairSerializer):
@@ -98,18 +101,28 @@ def register(request):
     
     user = get_object_or_none(User, email=email)
     if user:
-        return Response({ "message": "User already exists" }, status=status.HTTP_409_CONFLICT)
+        if not user.is_active:
+            return Response({ "message": "Please check your email to activate your account or click resend verification email", "resend": True},
+                             status=status.HTTP_409_CONFLICT)
+        
+        return Response({ "message": "Email ID Taken" }, status=status.HTTP_409_CONFLICT)
 
     try:
         hashed_password = make_password(password)
-        User.objects.create(email=email, 
+        new_user = User.objects.create(email=email, 
                             password=hashed_password,
                             phone_number=phone_number, 
                             first_name=first_name,
                             last_name=last_name)
-        return Response({ "success": f"New user {email} created!" }, status=status.HTTP_201_CREATED)
+        
+        result = send_verification_email(new_user)
+        if result:
+            return Response({ "message": "We have sent you an email. Please click on the verification link to activate your account." },
+                         status=status.HTTP_201_CREATED)
+        
+        return Response({ "message": "Email not sent" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        return Response({ "error": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({ "message": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -128,8 +141,76 @@ def logout(request):
         response.delete_cookie('jwt')
         return response
     except Exception as e:
-        return Response({ "error": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({ "error": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
+
+@api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+def verify_register(request):
+
+    try:
+        token = request.data.get("token", "")
+        # Verify the JWT token
+        decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+
+        # # Extract the expiration time from the token payload
+        # expiration_time = datetime.datetime.fromtimestamp(decoded_token['exp'])
+
+        # # Check if the token has expired
+        # current_time = datetime.datetime.now()
+        # if current_time > expiration_time:
+        #     return Response({"message":"Registration link expired"}, status=status.HTTP_401_UNAUTHORIZED)
+        # else:
+        user_obj = get_object_or_none(User, email=decoded_token["email"])
+        if user_obj:
+            if not user_obj.is_active:
+                user_obj.is_active = True
+                user_obj.save()
+            else:
+                return Response({"message":f"Hello {user_obj.first_name}! Your account is already activated"}, status=status.HTTP_409_CONFLICT)
+        else:
+            return Response({"message":"User Not Found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({"message":f"Hello {user_obj.first_name}! Your account is activated"}, status=status.HTTP_200_OK)
+        
+    except jwt.ExpiredSignatureError:
+        return Response({"message":"Registration link expired"}, status=status.HTTP_401_UNAUTHORIZED)
+    except jwt.InvalidTokenError:
+        return Response({"message":"Registration link invalid"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+@api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+def resend_register(request):
+
+    email = request.data.get("email", None)
+
+    user_obj = get_object_or_none(User, email=email)
+    if user_obj:
+        if user_obj.is_active:
+            return Response({"message":"User Already Verified"}, status=status.HTTP_409_CONFLICT)
+        
+        result = send_verification_email(user_obj)
+        if result:
+            return Response({"message":"Verification Email Resent"}, status=status.HTTP_200_OK)
+    else:
+        return Response({"message":"User Not Found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    return Response({"message":"Verification Email Not Sent"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    
+
+@api_view(['GET'])
+def send_email(request):
+    user_obj = get_object_or_none(User, email="nishantshetty92@gmail.com")
+    if user_obj:
+        result = send_verification_email(user_obj)
+        if result:
+            return Response({ "Email Sent" }, status=status.HTTP_200_OK)
+    else:
+        return Response({ "User Not Found" }, status=status.HTTP_404_NOT_FOUND)
+    
+    return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # class CustomTokenView(APIView):
 #     def post(self, request, *args, **kwargs):
