@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'base',
     'shop',
+    'storages'
 ]
 
 REST_FRAMEWORK = {
@@ -176,3 +177,16 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+AWS_ACCESS_KEY_ID = 'AKIAUDAJRGLTJYFEXQXF'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_STORAGE_BUCKET_NAME = 'shopsurfer'
+AWS_S3_SIGNATURE_NAME = 's3v4',
+AWS_S3_REGION_NAME = 'ap-south-1'
+AWS_S3_FILE_OVERWRITE = False
+AWS_QUERYSTRING_AUTH = False
+AWS_DEFAULT_ACL =  "public-read"
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+MEDIA_URL = 'https://%s/' % AWS_STORAGE_BUCKET_NAME

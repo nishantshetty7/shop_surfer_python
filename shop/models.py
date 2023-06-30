@@ -6,6 +6,7 @@ from datetime import datetime
 class Category(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
+    image = models.ImageField(upload_to='categories/')
 
     def __str__(self):
         return self.name
@@ -21,7 +22,7 @@ class Product(models.Model):
     in_stock = models.BooleanField(default=True)
     quantity = models.IntegerField(default=10)
     seller = models.CharField(max_length=100)
-    # image = models.ImageField(upload_to='product_images')
+    image = models.ImageField(upload_to='products/')
 
     def __str__(self):
         return self.name

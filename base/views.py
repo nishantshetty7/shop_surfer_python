@@ -102,7 +102,7 @@ def register(request):
     user = get_object_or_none(User, email=email)
     if user:
         if not user.is_active:
-            return Response({ "message": "Please check your email to activate your account or click resend verification email", "resend": True},
+            return Response({ "message": "You have already registered but need to verify your account. Please check your mail or resend verification email", "resend": True},
                              status=status.HTTP_409_CONFLICT)
         
         return Response({ "message": "Email ID Taken" }, status=status.HTTP_409_CONFLICT)
