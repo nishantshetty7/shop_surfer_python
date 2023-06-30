@@ -40,10 +40,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     phone_number = models.CharField(max_length = 10)
+    image = models.ImageField(upload_to='user/', default="")
     about = models.TextField(_(
         'about'), max_length=500, blank=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
+    auth_type = models.CharField(max_length=100, default="regular")
 
     objects = CustomAccountManager()
 

@@ -13,30 +13,22 @@ from base.models import User
 from base.utils import get_object_or_none
 from django.contrib.auth.hashers import make_password
 
+from base.serializers import AuthTokenSerializer
 import jwt
 from base.emailer import send_verification_email
-
-
-class AuthTokenSerializer(TokenObtainPairSerializer):
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-
-        # Add custom claims
-        token['email'] = user.email
-        token['phone_number'] = user.phone_number
-        token['name'] = user.first_name
-        token['is_admin'] = user.is_staff
-
-        print("Token Updated")
-
-        return token
 
 
 class LoginUserView(TokenObtainPairView):
     serializer_class = AuthTokenSerializer
 
     def post(self, request, *args, **kwargs):
+        email = request.data.get("email", None)
+
+        user = get_object_or_none(User, email=email)
+
+        if user and user.auth_type == "google":
+            return Response({"message": """It looks like you've previously registered using social authentication. Please use the same social authentication method (Google) to log in."""}, status=status.HTTP_403_FORBIDDEN)
+
         response = super().post(request, *args, **kwargs)
         refresh_token = response.data.get('refresh')
 
@@ -125,6 +117,57 @@ def register(request):
         return Response({ "message": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+def google_login(request):
+    request_data = request.data
+    email = request_data.get("email", None)
+    first_name = request_data.get("given_name", None)
+    last_name = request_data.get("family_name", None)
+    image = request_data.get("picture", "")
+
+    if not email:
+        return Response({ "message": "Email is required." }, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = get_object_or_none(User, email=email)
+    if not user:
+        try:
+            hashed_password = make_password(f"{email}_{first_name}")
+            user = User.objects.create(email=email, 
+                                       password=hashed_password,
+                                        first_name=first_name,
+                                        last_name=last_name,
+                                        image=image,
+                                        is_active=True,
+                                        auth_type="google")
+        except Exception as e:
+            return Response({ "message": str(e) }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    serializer = AuthTokenSerializer()
+
+    if user.auth_type == "regular":
+        return Response({"message":"You have already registered with password authentication. Please contact support for any assistance."},status=status.HTTP_409_CONFLICT)
+
+    tokens = serializer.validate({'email': user.email, 'password': f"{email}_{first_name}"})
+
+    access_token = tokens['access']
+    refresh_token = tokens['refresh']
+
+    response = Response({"access_token": access_token}, status=status.HTTP_200_OK)
+    
+    # Set the refresh token as an HTTP cookie
+    response.set_cookie(
+        key='jwt',
+        value=refresh_token,
+        httponly=True,
+        secure=True,    # Enable this if using HTTPS
+        samesite=None,
+        max_age=(60 * 60 * 24)
+    )
+    
+    return response
+    
+    
 @api_view(['GET'])
 # @permission_classes([IsAuthenticated])
 def logout(request):
