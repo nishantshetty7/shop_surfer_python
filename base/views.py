@@ -76,7 +76,7 @@ class LoginRefreshView(APIView):
 
         except Exception as e:
             # Handle any potential exceptions (e.g., token expiration, invalid signature, etc.)
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])

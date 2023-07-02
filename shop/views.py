@@ -72,15 +72,15 @@ def add_cart_item(request):
     try:
         if cart and product:
             CartItem.objects.create(**cart_item_dict)
-
-            latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
-            serializer = CartItemSerializer(latest_cart, many=True)
-
-            return Response(serializer.data, status=status.HTTP_200_OK)
     except IntegrityError:
         pass
     
-    return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
+    latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+    serializer = CartItemSerializer(latest_cart, many=True)
+
+    # return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
         
 
@@ -127,7 +127,6 @@ def merge_cart(request):
             CartItem.objects.bulk_create(valid_cart_items, ignore_conflicts=True)
         except IntegrityError:
             pass
-
 
         latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
         serializer = CartItemSerializer(latest_cart, many=True)
