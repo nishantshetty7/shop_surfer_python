@@ -33,8 +33,9 @@ class AuthTokenSerializer(TokenObtainPairSerializer):
 
         # Add custom claims
         token['email'] = user.email
+        token['image'] = user.image.url if user.image else user.profile_pic
         token['phone_number'] = user.phone_number
-        token['name'] = user.first_name
+        token['name'] = f"{user.first_name} {user.last_name}"
         token['is_admin'] = user.is_superuser
 
         print("Token Updated")

@@ -16,6 +16,8 @@ from django.contrib.auth.hashers import make_password
 from base.serializers import AuthTokenSerializer
 import jwt
 from base.emailer import send_verification_email
+import time
+from django.shortcuts import render
 
 
 class LoginUserView(TokenObtainPairView):
@@ -137,7 +139,7 @@ def google_login(request):
                                        password=hashed_password,
                                         first_name=first_name,
                                         last_name=last_name,
-                                        image=image,
+                                        profile_pic=image,
                                         is_active=True,
                                         auth_type="google")
         except Exception as e:
@@ -190,7 +192,6 @@ def logout(request):
 @api_view(['POST'])
 # @permission_classes([IsAuthenticated])
 def verify_register(request):
-
     try:
         token = request.data.get("token", "")
         # Verify the JWT token
@@ -254,6 +255,14 @@ def send_email(request):
         return Response({ "User Not Found" }, status=status.HTTP_404_NOT_FOUND)
     
     return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def email_verification(request):
+    context = {
+        'first_name': "Nishant",
+        'verification_url': f'http://localhost:3000/verify/?token={1234}'
+    }
+    return render(request, 'base/email_verification.html', context=context)
 
 # class CustomTokenView(APIView):
 #     def post(self, request, *args, **kwargs):

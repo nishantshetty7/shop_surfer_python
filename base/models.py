@@ -39,8 +39,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    phone_number = models.CharField(max_length = 10)
-    image = models.ImageField(upload_to='user/', default="")
+    phone_number = models.CharField(max_length = 10, blank=True)
+    image = models.ImageField(upload_to='user/', default="", blank=True)
+    profile_pic = models.CharField(max_length=500, default="", blank=True)
     about = models.TextField(_(
         'about'), max_length=500, blank=True)
     is_staff = models.BooleanField(default=False)

@@ -11,6 +11,7 @@ from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, L
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from base.utils import get_object_or_none
+import time
     
 @api_view(['GET'])
 def get_categories(request):
@@ -81,9 +82,7 @@ def add_cart_item(request):
     # return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
     return Response(serializer.data, status=status.HTTP_200_OK)
     
-
         
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def merge_cart(request):
@@ -174,6 +173,7 @@ def delete_cart_item(request):
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
     
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
             

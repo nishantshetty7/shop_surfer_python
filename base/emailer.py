@@ -2,6 +2,7 @@ from django.conf import settings
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from django.template.loader import render_to_string
 import datetime
 import jwt
 
@@ -29,7 +30,7 @@ def generate_verification_token(user_obj):
 def send_verification_email(user_obj):
 
     sender_email = 'shettynishu92@gmail.com'
-    sender_password = 'ewlqvyulzbcvpowe'
+    sender_password = settings.GMAIL_APP_PASSWORD
     recipient_email = user_obj.email
     # recipient_email = 'nishantshetty92@gmail.com'
 
@@ -46,18 +47,27 @@ def send_verification_email(user_obj):
     token = generate_verification_token(user_obj)
 
     # Compose the HTML email body
-    html = f"""
-    <html>
-    <head></head>
-    <body>
-        <h1 style="color: gray; text-align: center;">ShopSurfer</h1>
-        <p>Hello {user_obj.first_name}! To activate your account, please click on the verification link below:</p>
-        <a href="http://localhost:3000/verify/?token={token}" style="background-color:#4CAF50;color:white;padding:12px 20px;text-align:center;
-        text-decoration:none;display:inline-block;border-radius:4px;font-weight: bold;">Verify Now</a>
-    </body>
-    </html>
-    """
-    message.attach(MIMEText(html, 'html'))
+    # html = f"""
+    # <html>
+    # <head></head>
+    # <body>
+    #     <h1 style="color: gray; text-align: center;">ShopSurfer</h1>
+    #     <p>Hello {user_obj.first_name}! To activate your account, please click on the verification link below:</p>
+    #     <a href="http://localhost:3000/verify/?token={token}" style="background-color:#4CAF50;color:white;padding:12px 20px;text-align:center;
+    #     text-decoration:none;display:inline-block;border-radius:4px;font-weight: bold;">Verify Now</a>
+    # </body>
+    # </html>
+    # """
+
+    # Define the context for the email template
+    context = {
+        'first_name': user_obj.first_name,
+        'verification_url': f'http://localhost:3000/verify/?token={token}'
+    }
+
+    # Render the HTML template with the context
+    html_content = render_to_string('base/email_verification.html', context)
+    message.attach(MIMEText(html_content, 'html'))
 
     try:
         # Establish a secure connection with the SMTP server
