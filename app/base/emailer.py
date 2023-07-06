@@ -62,7 +62,7 @@ def send_verification_email(user_obj):
     # Define the context for the email template
     context = {
         'first_name': user_obj.first_name,
-        'verification_url': f'http://localhost:3000/verify/?token={token}'
+        'verification_url': f'{settings.REACT_APP_URL}/verify/?token={token}'
     }
 
     # Render the HTML template with the context
