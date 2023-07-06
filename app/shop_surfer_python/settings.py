@@ -11,27 +11,27 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
-import environ
 from datetime import timedelta
+import dj_database_url
 
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env()
-env.read_env('../.env')
+# env = environ.Env()
+# env.read_env('../.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env("SECRET_KEY", default="secret")
+SECRET_KEY = os.environ.get("SECRET_KEY", default="secret")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool("DEBUG")
+DEBUG = os.environ.get("DEBUG", False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", default="").split(",")
 
 
 # Application definition
@@ -130,9 +130,26 @@ WSGI_APPLICATION = 'shop_surfer_python.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#         "default": env.db()
+#     }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': "shop_surfer_db",
+#         'USER': "demo_user",
+#         'PASSWORD': "demo123",
+#         'HOST': "localhost",
+#         'PORT': 5432,
+#     }
+# }
+
+
 DATABASES = {
-        "default": env.db()
-    }
+    'default': dj_database_url.config(default=os.environ.get("DATABASE_URL", ""))
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -179,7 +196,7 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-GMAIL_APP_PASSWORD = env("GMAIL_APP_PASSWORD", default="")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", default="")
 
 # Set the URL scheme to HTTPS if needed
 AWS_S3_SECURE_URLS = True
@@ -188,8 +205,8 @@ AWS_S3_SECURE_URLS = True
 STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", default="")
 
 AWS_STORAGE_BUCKET_NAME = 'shopsurfer'
 AWS_S3_SIGNATURE_NAME = 's3v4',

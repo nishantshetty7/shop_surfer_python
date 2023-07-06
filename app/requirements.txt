@@ -2,6 +2,7 @@ asgiref==3.7.2
 backports.zoneinfo==0.2.1
 boto3==1.26.164
 botocore==1.29.164
+dj-database-url==2.0.0
 Django==4.2.2
 django-cors-headers==4.1.0
 django-environ==0.10.0
