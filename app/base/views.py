@@ -48,7 +48,7 @@ class LoginUserView(TokenObtainPairView):
             httponly=True,
             secure=True,    # Enable this if using HTTPS
             samesite=None,
-            max_age=(60 * 60 * 24)
+            max_age=(120)
         )
         
         return response
@@ -164,7 +164,7 @@ def google_login(request):
         httponly=True,
         secure=True,    # Enable this if using HTTPS
         samesite=None,
-        max_age=(60 * 60 * 24)
+        max_age=(120)
     )
     
     return response
