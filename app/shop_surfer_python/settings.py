@@ -197,6 +197,7 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", default="hello.shopsurfer@gmail.com")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", default="")
 
 # Set the URL scheme to HTTPS if needed

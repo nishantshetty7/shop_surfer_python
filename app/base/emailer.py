@@ -29,7 +29,7 @@ def generate_verification_token(user_obj):
 
 def send_verification_email(user_obj):
 
-    sender_email = 'shettynishu92@gmail.com'
+    sender_email = settings.SENDER_EMAIL
     sender_password = settings.GMAIL_APP_PASSWORD
     recipient_email = user_obj.email
     # recipient_email = 'nishantshetty92@gmail.com'
