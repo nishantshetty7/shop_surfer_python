@@ -60,8 +60,8 @@ REST_FRAMEWORK = {
 AUTH_USER_MODEL = "base.User"
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=2),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(hours=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': False,
@@ -197,7 +197,8 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", default="hello.shopsurfer@gmail.com")
+SENDER_EMAIL = os.environ.get(
+    "SENDER_EMAIL", default="hello.shopsurfer@gmail.com")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", default="")
 
 # Set the URL scheme to HTTPS if needed
@@ -215,7 +216,7 @@ AWS_S3_SIGNATURE_NAME = 's3v4',
 AWS_S3_REGION_NAME = 'ap-south-1'
 AWS_S3_FILE_OVERWRITE = False
 AWS_QUERYSTRING_AUTH = False
-AWS_DEFAULT_ACL =  "public-read"
+AWS_DEFAULT_ACL = "public-read"
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 MEDIA_URL = 'https://%s/' % AWS_STORAGE_BUCKET_NAME
 
