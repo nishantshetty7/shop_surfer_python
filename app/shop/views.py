@@ -29,14 +29,14 @@ def get_products(request, slug):
 
 
 @api_view(['GET'])
-def product_detail(request, pk):
-    product = get_object_or_none(Product, pk=pk)
+def product_detail(request, slug):
+    product = get_object_or_none(Product, slug=slug)
     if product:
         serializer = ProductSerializer(product)
         return Response(serializer.data)
 
     return Response(
-        {"error": "Product not found."},
+        {"error": "Product not found"},
         status=status.HTTP_404_NOT_FOUND
     )
 
@@ -84,7 +84,6 @@ def add_cart_item(request):
         cart = Cart.objects.create(user=user)
 
     cart_item_dict["cart_id"] = cart.id
-    print(cart_item_dict)
 
     # Check if the product exists
     product = get_object_or_none(Product, id=cart_item_dict.get("product_id"))
