@@ -131,10 +131,6 @@ WSGI_APPLICATION = 'shop_surfer_python.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#         "default": env.db()
-#     }
-
 
 # DATABASES = {
 #     'default': {

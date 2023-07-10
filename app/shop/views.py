@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import CategorySerializer, ProductSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer, ShippingAddressSerializer
-from shop.models import Product, Category, Cart, CartItem, Order, OrderItem, ShippingAddress
+from shop.models import Product, Category, Cart, CartItem, Order, OrderItem, ShippingAddress, TopCategory
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
@@ -12,17 +12,18 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from base.utils import get_object_or_none
 import time
-    
+
+
 @api_view(['GET'])
 def get_categories(request):
     categories = Category.objects.all()
     serializer = CategorySerializer(categories, many=True)
     return Response(serializer.data)
 
+
 @api_view(['GET'])
-def get_products(request, pk):
-    category_id = pk
-    products = Product.objects.filter(category_id=category_id)
+def get_products(request, slug):
+    products = Product.objects.filter(category__slug=slug)
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
 
@@ -33,11 +34,28 @@ def product_detail(request, pk):
     if product:
         serializer = ProductSerializer(product)
         return Response(serializer.data)
-    
+
     return Response(
-            {"error": "Product not found."},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        {"error": "Product not found."},
+        status=status.HTTP_404_NOT_FOUND
+    )
+
+
+@api_view(['GET'])
+def get_top_categories(request):
+    top_categories = [tc.category for tc in TopCategory.objects.all().order_by("-total_purchases")[:3]]
+    serializer = CategorySerializer(top_categories, many=True)
+    category_list = serializer.data
+    top_product_dict = {cat.id: dict() for cat in top_categories}
+    for category in top_categories:
+        top_products = category.products.all().order_by("-rating")[:10]
+        product_serializer = ProductSerializer(top_products, many=True)
+        top_product_dict[category.id]["products"] = product_serializer.data
+    for cat in category_list:
+        cat["products"] = top_product_dict[cat["id"]]["products"]
+
+    return Response(category_list)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -47,10 +65,11 @@ def get_cart_list(request):
     cart_list = []
     cart = get_object_or_none(Cart, user=user)
     if cart:
-        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart = CartItem.objects.filter(
+            cart__user=user).order_by("created_at")
         serializer = CartItemSerializer(latest_cart, many=True)
         cart_list = serializer.data
-    
+
     return Response(cart_list, status=status.HTTP_200_OK)
 
 
@@ -63,7 +82,7 @@ def add_cart_item(request):
     cart = get_object_or_none(Cart, user=user)
     if not cart:
         cart = Cart.objects.create(user=user)
-    
+
     cart_item_dict["cart_id"] = cart.id
     print(cart_item_dict)
 
@@ -75,14 +94,15 @@ def add_cart_item(request):
             CartItem.objects.create(**cart_item_dict)
     except IntegrityError:
         pass
-    
-    latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+
+    latest_cart = CartItem.objects.filter(
+        cart__user=user).order_by("created_at")
     serializer = CartItemSerializer(latest_cart, many=True)
 
     # return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
     return Response(serializer.data, status=status.HTTP_200_OK)
-    
-        
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def merge_cart(request):
@@ -103,35 +123,43 @@ def merge_cart(request):
 
     if len(item_objects) > 0:
 
-        item_objects_old = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        item_objects_old = CartItem.objects.filter(
+            cart__user=user).order_by("created_at")
         if len(item_objects_old) > 0:
             # Check for duplicates
-            existing_ids = set(item_objects_old.values_list('product_id', flat=True))
-            duplicate_items = [obj for obj in item_objects if obj.product_id in existing_ids]
-            
+            existing_ids = set(
+                item_objects_old.values_list('product_id', flat=True))
+            duplicate_items = [
+                obj for obj in item_objects if obj.product_id in existing_ids]
+
             # Filter out duplicates from the original list
-            unique_cart_items = [obj for obj in item_objects if obj not in duplicate_items]
+            unique_cart_items = [
+                obj for obj in item_objects if obj not in duplicate_items]
 
             for obj in duplicate_items:
                 CartItem.objects.filter(product_id=obj.product_id).update(quantity=obj.quantity,
-                                                        is_selected=obj.is_selected)
+                                                                          is_selected=obj.is_selected)
         else:
             unique_cart_items = item_objects
 
-        valid_products = Product.objects.filter(id__in=[obj.product_id for obj in unique_cart_items]).values_list("id", flat=True)
+        valid_products = Product.objects.filter(
+            id__in=[obj.product_id for obj in unique_cart_items]).values_list("id", flat=True)
         print(valid_products)
 
-        valid_cart_items = [obj for obj in unique_cart_items if obj.product_id in valid_products]
+        valid_cart_items = [
+            obj for obj in unique_cart_items if obj.product_id in valid_products]
         try:
-            CartItem.objects.bulk_create(valid_cart_items, ignore_conflicts=True)
+            CartItem.objects.bulk_create(
+                valid_cart_items, ignore_conflicts=True)
         except IntegrityError:
             pass
 
-        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart = CartItem.objects.filter(
+            cart__user=user).order_by("created_at")
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -144,10 +172,12 @@ def update_cart_item(request):
     user = request.user
     updated = True
     if product_id and ("quantity" in request.data or "is_selected" in request.data):
-        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart = CartItem.objects.filter(
+            cart__user=user).order_by("created_at")
         latest_cart.filter(product_id=product_id).update(**request.data)
     elif not product_id and "is_selected" in request.data:
-        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart = CartItem.objects.filter(
+            cart__user=user).order_by("created_at")
         latest_cart.update(is_selected=request.data["is_selected"])
     else:
         updated = False
@@ -156,27 +186,27 @@ def update_cart_item(request):
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['DELETE'])
-@permission_classes([IsAuthenticated])           
+@permission_classes([IsAuthenticated])
 def delete_cart_item(request):
     # item_id = request.data.pop("item_id", None)
     product_ids = request.data.pop("product_ids", None)
     user = request.user
 
     if product_ids:
-        latest_cart = CartItem.objects.filter(cart__user=user).order_by("created_at")
+        latest_cart = CartItem.objects.filter(
+            cart__user=user).order_by("created_at")
         latest_cart.filter(product_id__in=product_ids).delete()
         serializer = CartItemSerializer(latest_cart, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
+
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -194,19 +224,22 @@ def place_order(request):
         for item in order_items:
             if item.get("product_id", None):
                 item_obj = OrderItem(order=order_obj, product_id=item["product_id"],
-                                    price=item["price"], quantity=item["quantity"])
+                                     price=item["price"], quantity=item["quantity"])
                 item_objects.append(item_obj)
 
         if len(item_objects) > 0:
-            
-            valid_products = Product.objects.filter(id__in=[obj.product_id for obj in item_objects]).values_list("id", flat=True)
+
+            valid_products = Product.objects.filter(
+                id__in=[obj.product_id for obj in item_objects]).values_list("id", flat=True)
             print(valid_products)
 
-            valid_order_items = [obj for obj in item_objects if obj.product_id in valid_products]
+            valid_order_items = [
+                obj for obj in item_objects if obj.product_id in valid_products]
             if len(valid_order_items) > 0:
                 order_obj.save()
                 try:
-                    OrderItem.objects.bulk_create(valid_order_items, ignore_conflicts=True)
+                    OrderItem.objects.bulk_create(
+                        valid_order_items, ignore_conflicts=True)
                 except IntegrityError:
                     pass
 
@@ -214,11 +247,11 @@ def place_order(request):
                 response_data = order_serializer.data
                 item_objects = OrderItem.objects.filter(order=order_obj)
                 item_serializer = OrderItemSerializer(item_objects, many=True)
-                
+
                 response_data["order_items"] = item_serializer.data
 
                 return Response(response_data, status=status.HTTP_200_OK)
-        
+
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -227,14 +260,15 @@ def place_order(request):
 def get_address_list(request):
 
     user = request.user
-    address_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+    address_list = ShippingAddress.objects.filter(
+        user=user).order_by("created_at")
     serializer = ShippingAddressSerializer(address_list, many=True)
     updated_list = []
     for addr in serializer.data:
         addr["is_selected"] = True if addr["is_default"] else False
 
         updated_list.append(addr)
-    
+
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -247,13 +281,15 @@ def add_address(request):
 
     if new_address:
         new_address["user_id"] = user.id
-        address_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+        address_list = ShippingAddress.objects.filter(
+            user=user).order_by("created_at")
         if len(address_list) == 0:
             new_address["is_default"] = True
-        
+
         new_address_obj = ShippingAddress.objects.create(**new_address)
 
-        latest_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+        latest_list = ShippingAddress.objects.filter(
+            user=user).order_by("created_at")
         serializer = ShippingAddressSerializer(latest_list, many=True)
         updated_list = []
         for addr in serializer.data:
@@ -262,7 +298,7 @@ def add_address(request):
             updated_list.append(addr)
 
         return Response(updated_list, status=status.HTTP_200_OK)
-    
+
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -277,12 +313,13 @@ def edit_address(request):
     updated = False
 
     if address_id:
-        address_obj = ShippingAddress.objects.filter(id = address_id)
+        address_obj = ShippingAddress.objects.filter(id=address_id)
         if len(address_obj) > 0:
             address_obj.update(**updated_address)
             updated = True
 
-        latest_list = ShippingAddress.objects.filter(user=user).order_by("created_at")
+        latest_list = ShippingAddress.objects.filter(
+            user=user).order_by("created_at")
         serializer = ShippingAddressSerializer(latest_list, many=True)
         updated_list = []
         for addr in serializer.data:
@@ -294,7 +331,7 @@ def edit_address(request):
             updated_list.append(addr)
 
         return Response(updated_list, status=status.HTTP_200_OK)
-    
+
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 # class CartItemRetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
@@ -305,7 +342,7 @@ def edit_address(request):
 #         cart_item_id = self.kwargs['pk']
 #         user = self.request.user
 #         return CartItem.objects.filter(cart__user=user, id=cart_item_id)
-    
+
 #     def update(self, request, *args, **kwargs):
 #         partial = kwargs.pop('partial', False)
 #         instance = self.get_object()
