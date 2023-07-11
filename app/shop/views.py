@@ -33,7 +33,10 @@ def product_detail(request, slug):
     product = get_object_or_none(Product, slug=slug)
     if product:
         serializer = ProductSerializer(product)
-        return Response(serializer.data)
+        product_data = serializer.data
+        if product_data["description"]:
+            product_data["description"] = product_data["description"] if isinstance(product_data["description"], list) else [product_data["description"]]
+        return Response(product_data)
 
     return Response(
         {"error": "Product not found"},

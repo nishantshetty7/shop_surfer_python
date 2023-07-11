@@ -15,7 +15,7 @@ class Product(models.Model):
     category = models.ManyToManyField(Category, through='ProductCategory', related_name='products')
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
-    description = models.TextField(blank=True)
+    description = models.JSONField(null=True, blank=True, default=None)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     rating = models.DecimalField(max_digits=2, decimal_places=1)
     fast_delivery = models.BooleanField(default=False)
