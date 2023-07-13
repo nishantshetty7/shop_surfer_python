@@ -54,13 +54,17 @@ class OrderProductSerializer(ModelSerializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     # product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     product_name = serializers.SerializerMethodField()
+    product_slug = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ['product_id', 'product_name', 'price', 'quantity']
+        fields = ['product_id', 'product_name', 'product_slug', 'price', 'quantity']
 
     def get_product_name(self, obj):
         return obj.product.name if obj.product.name else None
+    
+    def get_product_slug(self, obj):
+        return obj.product.slug if obj.product.slug else None
 
 class OrderSerializer(ModelSerializer):
     # order_items = OrderItemSerializer(many=True, read_only=True)
