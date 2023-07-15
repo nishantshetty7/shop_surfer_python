@@ -4,7 +4,7 @@
 
 ## Overview
 
-This Django Rest Framework project serves as the backend for ShopSurfer React application. It provides a set of RESTful endpoints that allow users to interact with the application's resources, such as products, categories, user accounts, and orders. The API uses JSON Web Token (JWT) authentication to secure endpoints and manage user sessions.
+This Django Rest Framework project serves as the backend for [ShopSurfer React application](https://github.com/nishantshetty92/shop-surfer-app). It provides a set of RESTful endpoints that allow users to interact with the application's resources, such as products, categories, user accounts, and orders. The API uses JSON Web Token (JWT) authentication to secure endpoints and manage user sessions.
 
 ## Features
 
