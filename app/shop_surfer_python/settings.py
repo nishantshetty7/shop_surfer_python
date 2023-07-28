@@ -215,5 +215,6 @@ AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = "public-read"
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 MEDIA_URL = 'https://%s/' % AWS_STORAGE_BUCKET_NAME
+SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", default="")
 
 REACT_APP_URL = os.environ.get("REACT_APP_URL", "http://localhost:3000")
