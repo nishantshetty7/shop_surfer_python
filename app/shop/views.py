@@ -12,7 +12,9 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from base.utils import get_object_or_none
 import time
-
+from django.conf import settings
+from django.core.cache import cache
+import json
 
 @api_view(['GET'])
 def get_categories(request):
@@ -30,19 +32,26 @@ def get_products(request, slug):
 
 @api_view(['GET'])
 def product_detail(request, slug):
-    product = get_object_or_none(Product, slug=slug)
-    if product:
-        serializer = ProductSerializer(product)
-        product_data = serializer.data
-        if product_data["description"]:
-            product_data["description"] = product_data["description"] if isinstance(product_data["description"], list) else [product_data["description"]]
-        return Response(product_data)
-
-    return Response(
-        {"error": "Product not found"},
-        status=status.HTTP_404_NOT_FOUND
-    )
-
+    cache_key = f"product:{slug}"
+    cached_product = cache.get(cache_key)
+    if not cached_product:
+        product = get_object_or_none(Product, slug=slug)
+        if product:
+            serializer = ProductSerializer(product)
+            product_data = serializer.data
+            if product_data["description"]:
+                product_data["description"] = product_data["description"] if isinstance(product_data["description"], list) else [product_data["description"]]
+            
+            cache.set(cache_key, json.dumps(product_data), timeout=settings.CACHE_TTL)
+        else:
+            return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+    else:
+        print("USING CACHED PRODUCT")
+        product_data = json.loads(cached_product)
+    return Response(product_data)
 
 @api_view(['GET'])
 def get_top_categories(request):
@@ -66,12 +75,19 @@ def get_cart_list(request):
 
     user = request.user
     cart_list = []
-    cart = get_object_or_none(Cart, user=user)
-    if cart:
-        latest_cart = CartItem.objects.filter(
-            cart__user=user).order_by("created_at")
-        serializer = CartItemSerializer(latest_cart, many=True)
-        cart_list = serializer.data
+    cache_key = f"cart:{user.id}"
+    cached_cart = cache.get(cache_key)
+    if not cached_cart:
+        cart = get_object_or_none(Cart, user=user)
+        if cart:
+            latest_cart = CartItem.objects.filter(
+                cart__user=user).order_by("created_at")
+            serializer = CartItemSerializer(latest_cart, many=True)
+            cart_list = serializer.data
+            cache.set(cache_key, json.dumps(cart_list), timeout=settings.CACHE_TTL)
+    else:
+        print("USING CACHED CART")
+        cart_list = json.loads(cached_cart)
 
     return Response(cart_list, status=status.HTTP_200_OK)
 
@@ -100,6 +116,9 @@ def add_cart_item(request):
     latest_cart = CartItem.objects.filter(
         cart__user=user).order_by("created_at")
     serializer = CartItemSerializer(latest_cart, many=True)
+
+    cache_key = f"cart:{user.id}"
+    cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
 
     # return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -160,6 +179,9 @@ def merge_cart(request):
             cart__user=user).order_by("created_at")
         serializer = CartItemSerializer(latest_cart, many=True)
 
+        cache_key = f"cart:{user.id}"
+        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
@@ -187,6 +209,9 @@ def update_cart_item(request):
     if updated:
         serializer = CartItemSerializer(latest_cart, many=True)
 
+        cache_key = f"cart:{user.id}"
+        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
@@ -204,6 +229,9 @@ def delete_cart_item(request):
             cart__user=user).order_by("created_at")
         latest_cart.filter(product_id__in=product_ids).delete()
         serializer = CartItemSerializer(latest_cart, many=True)
+
+        cache_key = f"cart:{user.id}"
+        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -262,16 +290,22 @@ def place_order(request):
 def get_address_list(request):
 
     user = request.user
-    address_list = ShippingAddress.objects.filter(
-        user=user).order_by("created_at")
-    serializer = ShippingAddressSerializer(address_list, many=True)
-    updated_list = []
-    for addr in serializer.data:
-        addr["is_selected"] = True if addr["is_default"] else False
+    cache_key = f"address:{user.id}"
+    cached_address_list = cache.get(cache_key)
+    if not cached_address_list:
+        address_list = ShippingAddress.objects.filter(
+            user=user).order_by("created_at")
+        serializer = ShippingAddressSerializer(address_list, many=True)
+        for addr in serializer.data:
+            addr["is_selected"] = True if addr["is_default"] else False
 
-        updated_list.append(addr)
+        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
+        address_list = serializer.data
+    else:
+        print("Using CACHED ADDRESSES")
+        address_list = json.loads(cached_address_list)
 
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(address_list, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -298,6 +332,9 @@ def add_address(request):
             addr["is_selected"] = True if addr["id"] == new_address_obj.id else False
 
             updated_list.append(addr)
+
+        cache_key = f"address:{user.id}"
+        cache.set(cache_key, json.dumps(updated_list), timeout=settings.CACHE_TTL)
 
         return Response(updated_list, status=status.HTTP_200_OK)
 
@@ -331,6 +368,9 @@ def edit_address(request):
                 addr["is_selected"] = True if addr["is_default"] else False
 
             updated_list.append(addr)
+
+        cache_key = f"address:{user.id}"
+        cache.set(cache_key, json.dumps(updated_list), timeout=settings.CACHE_TTL)
 
         return Response(updated_list, status=status.HTTP_200_OK)
 

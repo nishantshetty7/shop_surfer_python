@@ -22,9 +22,15 @@ services:
     image: shopsurfer_api:latest
     container_name: shopsurfer_api
     command: "gunicorn shop_surfer_python.wsgi:application -b 0.0.0.0:8000"
-    # depends_on:
-    #   - local_db
+    depends_on:
+      - redis
     restart: always
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    container_name: shopsurfer_redis
 
   nginx:
     image: nginx:latest

@@ -22,14 +22,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # env = environ.Env()
 # env.read_env('../.env')
 
+IS_LOCAL = False
+if IS_LOCAL:
+    from dotenv import load_dotenv
+    load_dotenv()
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True if os.environ.get("DEBUG", default="False") == "True" else False
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY", default="secret")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True if os.environ.get("DEBUG", default="False") == "True" else False
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", default="").split(",")
 
@@ -147,6 +152,21 @@ WSGI_APPLICATION = 'shop_surfer_python.wsgi.application'
 DATABASES = {
     'default': dj_database_url.config(default=os.environ.get("DATABASE_URL", ""))
 }
+
+REDIS_URL = os.environ.get("REDIS_URL", default="redis_url")
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+CACHE_TTL = 3600
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
