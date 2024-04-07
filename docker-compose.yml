@@ -18,7 +18,7 @@ services:
     # volumes:
     #   - ./app:/app
     ports:
-      - 80:80
+      - 8000:8000
     image: shopsurfer_api:latest
     container_name: shopsurfer_api
     # command: "gunicorn shop_surfer_python.wsgi:application -b 0.0.0.0:8000"
@@ -31,14 +31,18 @@ services:
     ports:
       - "6379:6379"
     container_name: shopsurfer_redis
+    restart: always
 
-  # nginx:
-  #   image: nginx:latest
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/nginx.conf
-  #   ports:
-  #     - "80:80"
-  #   container_name: shopsurfer_nginx
-  #   depends_on:
-  #     - shopsurfer_api
-  #   restart: always
+  shopsurfer_nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    # volumes:
+    #   - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    image: shopsurfer_nginx:latest
+    container_name: shopsurfer_nginx
+    depends_on:
+      - shopsurfer_api
+    restart: always
