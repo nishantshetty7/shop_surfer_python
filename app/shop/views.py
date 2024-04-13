@@ -1,20 +1,17 @@
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import CategorySerializer, ProductSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer, ShippingAddressSerializer
 from shop.models import Product, Category, Cart, CartItem, Order, OrderItem, ShippingAddress, TopCategory
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
-from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from base.utils import get_object_or_none
-import time
-from django.conf import settings
-from django.core.cache import cache
-import json
+from base.middleware.authorizer import authorize
+from base.middleware.data_cacher import DataCacher
 
 @api_view(['GET'])
 def get_categories(request):
@@ -31,26 +28,19 @@ def get_products(request, slug):
 
 
 @api_view(['GET'])
+@DataCacher()
 def product_detail(request, slug):
-    cache_key = f"product:{slug}"
-    cached_product = cache.get(cache_key)
-    if not cached_product:
-        product = get_object_or_none(Product, slug=slug)
-        if product:
-            serializer = ProductSerializer(product)
-            product_data = serializer.data
-            if product_data["description"]:
-                product_data["description"] = product_data["description"] if isinstance(product_data["description"], list) else [product_data["description"]]
-            
-            cache.set(cache_key, json.dumps(product_data), timeout=settings.CACHE_TTL)
-        else:
-            return Response(
-                    {"error": "Product not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+    product = get_object_or_none(Product, slug=slug)
+    if product:
+        serializer = ProductSerializer(product)
+        product_data = serializer.data
+        if product_data["description"]:
+            product_data["description"] = product_data["description"] if isinstance(product_data["description"], list) else [product_data["description"]]
     else:
-        print("USING CACHED PRODUCT")
-        product_data = json.loads(cached_product)
+        return Response(
+                {"error": "Product not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
     return Response(product_data)
 
 @api_view(['GET'])
@@ -70,37 +60,32 @@ def get_top_categories(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def get_cart_list(request):
-
-    user = request.user
     cart_list = []
-    cache_key = f"cart:{user.id}"
-    cached_cart = cache.get(cache_key)
-    if not cached_cart:
-        cart = get_object_or_none(Cart, user=user)
-        if cart:
-            latest_cart = CartItem.objects.filter(
-                cart__user=user).order_by("created_at")
-            serializer = CartItemSerializer(latest_cart, many=True)
-            cart_list = serializer.data
-            cache.set(cache_key, json.dumps(cart_list), timeout=settings.CACHE_TTL)
-    else:
-        print("USING CACHED CART")
-        cart_list = json.loads(cached_cart)
+    user_id = request.user_id
+    cart = get_object_or_none(Cart, user__id=user_id)
+    if cart:
+        latest_cart = CartItem.objects.filter(
+            cart__user__id=user_id).order_by("created_at")
+        serializer = CartItemSerializer(latest_cart, many=True)
+        cart_list = serializer.data
 
     return Response(cart_list, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def add_cart_item(request):
 
-    user = request.user
+    user_id = request.user_id
     cart_item_dict = dict(request.data)
-    cart = get_object_or_none(Cart, user=user)
+    cart = get_object_or_none(Cart, user__id=user_id)
     if not cart:
-        cart = Cart.objects.create(user=user)
+        cart_dict = {"user_id": user_id}
+        cart = Cart.objects.create(**cart_dict)
 
     cart_item_dict["cart_id"] = cart.id
 
@@ -114,25 +99,24 @@ def add_cart_item(request):
         pass
 
     latest_cart = CartItem.objects.filter(
-        cart__user=user).order_by("created_at")
+        cart__user__id=user_id).order_by("created_at")
     serializer = CartItemSerializer(latest_cart, many=True)
-
-    cache_key = f"cart:{user.id}"
-    cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
 
     # return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def merge_cart(request):
 
-    user = request.user
+    user_id = request.user_id
     cart_items = request.data
-    cart = get_object_or_none(Cart, user=user)
+    cart = get_object_or_none(Cart, user__id=user_id)
     if not cart:
-        cart = Cart.objects.create(user=user)
+        cart_dict = {"user_id": user_id}
+        cart = Cart.objects.create(**cart_dict)
 
     item_objects = []
     for item in cart_items:
@@ -145,7 +129,7 @@ def merge_cart(request):
     if len(item_objects) > 0:
 
         item_objects_old = CartItem.objects.filter(
-            cart__user=user).order_by("created_at")
+            cart__user__id=user_id).order_by("created_at")
         if len(item_objects_old) > 0:
             # Check for duplicates
             existing_ids = set(
@@ -176,11 +160,8 @@ def merge_cart(request):
             pass
 
         latest_cart = CartItem.objects.filter(
-            cart__user=user).order_by("created_at")
+            cart__user__id=user_id).order_by("created_at")
         serializer = CartItemSerializer(latest_cart, many=True)
-
-        cache_key = f"cart:{user.id}"
-        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -188,20 +169,21 @@ def merge_cart(request):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def update_cart_item(request):
     print(request.data)
     # item_id = request.data.pop("item_id", None)
     product_id = request.data.pop("product_id", None)
-    user = request.user
+    user_id = request.user_id
     updated = True
     if product_id and ("quantity" in request.data or "is_selected" in request.data):
         latest_cart = CartItem.objects.filter(
-            cart__user=user).order_by("created_at")
+            cart__user__id=user_id).order_by("created_at")
         latest_cart.filter(product_id=product_id).update(**request.data)
     elif not product_id and "is_selected" in request.data:
         latest_cart = CartItem.objects.filter(
-            cart__user=user).order_by("created_at")
+            cart__user__id=user_id).order_by("created_at")
         latest_cart.update(is_selected=request.data["is_selected"])
     else:
         updated = False
@@ -209,29 +191,24 @@ def update_cart_item(request):
     if updated:
         serializer = CartItemSerializer(latest_cart, many=True)
 
-        cache_key = f"cart:{user.id}"
-        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
-
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def delete_cart_item(request):
     # item_id = request.data.pop("item_id", None)
     product_ids = request.data.pop("product_ids", None)
-    user = request.user
+    user_id = request.user_id
 
     if product_ids:
         latest_cart = CartItem.objects.filter(
-            cart__user=user).order_by("created_at")
+            cart__user__id=user_id).order_by("created_at")
         latest_cart.filter(product_id__in=product_ids).delete()
         serializer = CartItemSerializer(latest_cart, many=True)
-
-        cache_key = f"cart:{user.id}"
-        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -239,15 +216,15 @@ def delete_cart_item(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authorize
 def place_order(request):
 
-    user = request.user
+    user_id = request.user_id
     order_data = request.data.pop("order", None)
     order_items = request.data.pop("order_items", None)
 
     if order_data and order_items:
-        order_data["user_id"] = user.id
+        order_data["user_id"] = user_id
         order_obj = Order(**order_data)
 
         item_objects = []
@@ -286,46 +263,41 @@ def place_order(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def get_address_list(request):
 
-    user = request.user
-    cache_key = f"address:{user.id}"
-    cached_address_list = cache.get(cache_key)
-    if not cached_address_list:
-        address_list = ShippingAddress.objects.filter(
-            user=user).order_by("created_at")
-        serializer = ShippingAddressSerializer(address_list, many=True)
-        for addr in serializer.data:
-            addr["is_selected"] = True if addr["is_default"] else False
+    user_id = request.user_id
+    address_list = ShippingAddress.objects.filter(
+            user__id=user_id).order_by("created_at")
+    serializer = ShippingAddressSerializer(address_list, many=True)
+    for addr in serializer.data:
+        addr["is_selected"] = True if addr["is_default"] else False
 
-        cache.set(cache_key, json.dumps(serializer.data), timeout=settings.CACHE_TTL)
-        address_list = serializer.data
-    else:
-        print("Using CACHED ADDRESSES")
-        address_list = json.loads(cached_address_list)
+    address_list = serializer.data
 
     return Response(address_list, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def add_address(request):
 
-    user = request.user
+    user_id = request.user_id
     new_address = dict(request.data)
 
     if new_address:
-        new_address["user_id"] = user.id
+        new_address["user_id"] = user_id
         address_list = ShippingAddress.objects.filter(
-            user=user).order_by("created_at")
+            user__id=user_id).order_by("created_at")
         if len(address_list) == 0:
             new_address["is_default"] = True
 
         new_address_obj = ShippingAddress.objects.create(**new_address)
 
         latest_list = ShippingAddress.objects.filter(
-            user=user).order_by("created_at")
+            user__id=user_id).order_by("created_at")
         serializer = ShippingAddressSerializer(latest_list, many=True)
         updated_list = []
         for addr in serializer.data:
@@ -333,19 +305,17 @@ def add_address(request):
 
             updated_list.append(addr)
 
-        cache_key = f"address:{user.id}"
-        cache.set(cache_key, json.dumps(updated_list), timeout=settings.CACHE_TTL)
-
         return Response(updated_list, status=status.HTTP_200_OK)
 
     return Response({"error": "Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
+@authorize
+@DataCacher()
 def edit_address(request):
 
-    user = request.user
+    user_id = request.user_id
     updated_address = dict(request.data)
     address_id = updated_address.pop("id", None)
     updated_address.pop("is_selected")
@@ -358,7 +328,7 @@ def edit_address(request):
             updated = True
 
         latest_list = ShippingAddress.objects.filter(
-            user=user).order_by("created_at")
+            user__id=user_id).order_by("created_at")
         serializer = ShippingAddressSerializer(latest_list, many=True)
         updated_list = []
         for addr in serializer.data:
@@ -368,9 +338,6 @@ def edit_address(request):
                 addr["is_selected"] = True if addr["is_default"] else False
 
             updated_list.append(addr)
-
-        cache_key = f"address:{user.id}"
-        cache.set(cache_key, json.dumps(updated_list), timeout=settings.CACHE_TTL)
 
         return Response(updated_list, status=status.HTTP_200_OK)
 
